@@ -4,7 +4,7 @@
 int main(int argc, char** argv) {
   // intialize problem size
   int numThread = argc>1 ? atoi(argv[1]) : 1;
-  int size = argc>2 ? atoi(argv[2]) : 48000000;  
+  int size = argc>2 ? atoi(argv[2]) : 48000000;
   // allocate vectors
   int* A = new int[size];
   int* B = new int[size];

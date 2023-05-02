@@ -4,7 +4,7 @@
 int main(int argc, char** argv) {
   // intialize problem size
   int numThread = argc>1 ? atoi(argv[1]) : 1;
-  int size = argc>2 ? atoi(argv[2]) : 1024;  
+  int size = argc>2 ? atoi(argv[2]) : 1024;
   // allocate matrices
   int** A = new int*[size];
   int** B = new int*[size];
@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
       std::fill(B[i], B[i]+size, 1);
       std::fill(C[i], C[i]+size, 0);
     }
-  }  
+  }
   // start the parallel multiplication of two matrices
   stamp::parallel_for(0, size, 1, 0, size, 1, [&](int i, int j) {
     for(int k=0; k<size; k++) {

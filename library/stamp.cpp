@@ -9,8 +9,9 @@ namespace stamp
         std::vector<std::function<void()>> lambda_void_array;            // lambda function array for void
         std::vector<std::function<void(int)>> lambda_int_array;          // lambda function array for int
         std::vector<std::function<void(int, int)>> lambda_int_int_array; // lambda function array for int, int
-        int low1, high1, stride1, low2, high2, stride2;                  // for parallel_for
+        int low1, high1, stride1, low2, high2, stride2;             // for parallel_for
 
+        std::pair<int, int> partition1, partition2, partition3, partition4; // for parallel_for
         /// @brief
         /// @param numThreads
         /// @param type
@@ -90,12 +91,9 @@ namespace stamp
     void *thread_stub_pf_1(void *arg) // thread stub for parallel_for_1
     {
         thread_pool *tp = static_cast<thread_pool *>(arg);
-        int low, high, stride;
-        low = tp->low1;
-        high = tp->high1;
-        stride = tp->stride1;
+        std::pair<int, int> partition=tp->partition1;
         std::function<void(int)> *lambda = tp->lambda_int_array.data();
-        for (int i = low; i < high; i += stride)
+        for (int i = partition.first; i < partition.second; i++)
         {
             (*lambda)(i);
         }
@@ -108,10 +106,9 @@ namespace stamp
     void *thread_stub_pf_2(void *arg) // thread stub for parallel_for_2
     {
         thread_pool *tp = static_cast<thread_pool *>(arg);
-        int high;
-        high = tp->high1;
+        std::pair<int, int> partition=tp->partition1;
         std::function<void(int)> *lambda = tp->lambda_int_array.data();
-        for (int i = 0; i < high; i++)
+        for (int i = 0; i < partition.second; i++)
         {
             (*lambda)(i);
         }
@@ -124,17 +121,11 @@ namespace stamp
     void *thread_stub_pf_3(void *arg) // thread stub for parallel_for_3
     {
         thread_pool *tp = static_cast<thread_pool *>(arg);
-        int low1, high1, stride1, low2, high2, stride2;
-        low1 = tp->low1;
-        high1 = tp->high1;
-        stride1 = tp->stride1;
-        low2 = tp->low2;
-        high2 = tp->high2;
-        stride2 = tp->stride2;
+        std::pair<int, int> partition1=tp->partition1, partition2=tp->partition2;
         std::function<void(int, int)> *lambda = tp->lambda_int_int_array.data();
-        for (int i = low1; i < high1; i += stride1)
+        for (int i = partition1.first; i < partition1.second; i += tp->stride1)
         {
-            for (int j = low2; j < high2; j += stride2)
+            for (int j = partition2.first; j < partition2.second; j += tp->stride2)
             {
                 (*lambda)(i, j);
             }
@@ -148,13 +139,11 @@ namespace stamp
     void *thread_stub_pf_4(void *arg) // thread stub for parallel_for_4
     {
         thread_pool *tp = static_cast<thread_pool *>(arg);
-        int high1, high2;
-        high1 = tp->high1;
-        high2 = tp->high2;
+        std::pair<int, int> partition1=tp->partition1, partition2=tp->partition2;
         std::function<void(int, int)> *lambda = tp->lambda_int_int_array.data();
-        for (int i = 0; i < high1; i++)
+        for (int i = 0; i < partition1.second; i += tp->stride1)
         {
-            for (int j = 0; j < high2; j++)
+            for (int j = 0; j < partition2.second; j += tp->stride2)
             {
                 (*lambda)(i, j);
             }
@@ -208,8 +197,17 @@ namespace stamp
         {
             thread_pool.set_lambda(std::move(lambda));
         }
+
+        std::vector<std::pair<int, int>> partition;
+        int partition_size = (high - low) / numThreads;
         for (int i = 0; i < numThreads; i++)
         {
+            partition.push_back(std::make_pair(i * partition_size, (i + 1) * partition_size));
+        }
+
+        for (int i = 0; i < numThreads; i++)
+        {
+            thread_pool.partition1 = partition[i];
             thread_pool.create_thread(thread_pool.thread_id[i], *thread_stub_pf_1, static_cast<void *>(&thread_pool));
         }
 
@@ -240,8 +238,16 @@ namespace stamp
             thread_pool.set_lambda(std::move(lambda));
         }
 
+        std::vector<std::pair<int, int>> partition;
+        int partition_size = high / numThreads;
         for (int i = 0; i < numThreads; i++)
         {
+            partition.push_back(std::make_pair(i * partition_size, (i + 1) * partition_size));
+        }
+
+        for (int i = 0; i < numThreads; i++)
+        {
+            thread_pool.partition1 = partition[i];
             thread_pool.create_thread(thread_pool.thread_id[i], thread_stub_pf_2, static_cast<void *>(&thread_pool));
         }
 
@@ -286,8 +292,22 @@ namespace stamp
             thread_pool.set_lambda(std::move(lambda));
         }
 
+        std::vector<std::pair<int, int>> partition1, partition2;
+        int first_partition_size = (high1 - low1) / numThreads;
         for (int i = 0; i < numThreads; i++)
         {
+            partition1.push_back(std::make_pair(i * first_partition_size, (i + 1) * first_partition_size));
+        }
+        int second_partition_size = (high2 - low2) / numThreads;
+        for (int i = 0; i < numThreads; i++)
+        {
+            partition2.push_back(std::make_pair(i * second_partition_size, (i + 1) * second_partition_size));
+        }
+
+        for (int i = 0; i < numThreads; i++)
+        {
+            thread_pool.partition1 = partition1[i];
+            thread_pool.partition2 = partition2[i];
             thread_pool.create_thread(thread_pool.thread_id[i], thread_stub_pf_3, static_cast<void *>(&thread_pool));
         }
 
@@ -322,9 +342,22 @@ namespace stamp
         {
             thread_pool.set_lambda(std::move(lambda));
         }
+        std::vector<std::pair<int, int>> partition1, partition2;
+        int first_partition_size = high1 / numThreads;
+        for (int i = 0; i < numThreads; i++)
+        {
+            partition1.push_back(std::make_pair(i * first_partition_size, (i + 1) * first_partition_size));
+        }
+        int second_partition_size = high2 / numThreads;
+        for (int i = 0; i < numThreads; i++)
+        {
+            partition2.push_back(std::make_pair(i * second_partition_size, (i + 1) * second_partition_size));
+        }
 
         for (int i = 0; i < numThreads; i++)
         {
+            thread_pool.partition1 = partition1[i];
+            thread_pool.partition2 = partition2[i];
             thread_pool.create_thread(thread_pool.thread_id[i], thread_stub_pf_4, static_cast<void *>(&thread_pool.lambda_int_int_array[i]));
         }
 

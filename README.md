@@ -55,7 +55,10 @@
 
 ## Sample Output
 
+
 ```
+Type Process Message Timestamp
+
 begin process p1 p0  0
 print abc p2  0
 print x1 p1  0
